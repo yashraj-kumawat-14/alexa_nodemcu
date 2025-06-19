@@ -1,41 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Voice-Controlled Bulb/Socket</title>
+  <title>Smart Voice Control (Fuzzy)</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
-  <h2>Voice-Based Control: Bulbs & Sockets</h2>
+  <h2>Voice Control: Bulbs & Sockets (Smart Parser)</h2>
   <div id="status">Connecting to MQTT...</div><br>
 
-  <button onclick="startListening()">🎤 Speak Command</button><br><br>
+  <button onclick="startListening()">🎤 Speak</button><br><br>
   <div id="transcript">You said: ...</div>
 
-  <hr>
-  <h3>Manual Control</h3>
-  <button onclick="send(1, 'ON')">Bulb 1 ON</button>
-  <button onclick="send(1, 'OFF')">Bulb 1 OFF</button><br><br>
-
-  <button onclick="send(2, 'ON')">Bulb 2 ON</button>
-  <button onclick="send(2, 'OFF')">Bulb 2 OFF</button><br><br>
-
-  <button onclick="send(3, 'ON')">Socket 1 ON</button>
-  <button onclick="send(3, 'OFF')">Socket 1 OFF</button><br><br>
-
-  <button onclick="send(4, 'ON')">Socket 2 ON</button>
-  <button onclick="send(4, 'OFF')">Socket 2 OFF</button>
-
   <script>
-    // MQTT setup
     const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
     const topicBase = "lucifer123/home/relay";
 
     client.on('connect', () => {
-      document.getElementById("status").innerText = "✅ Connected to test.mosquitto.org";
+      document.getElementById("status").innerText = "✅ Connected to MQTT broker";
     });
 
     client.on('error', () => {
-      document.getElementById("status").innerText = "❌ MQTT connection error!";
+      document.getElementById("status").innerText = "❌ MQTT error";
     });
 
     function send(relay, state) {
@@ -43,13 +28,9 @@
       client.publish(topic, state);
     }
 
-    // Speech recognition
     function startListening() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Speech recognition not supported in this browser.");
-        return;
-      }
+      if (!SpeechRecognition) return alert("Speech recognition not supported.");
 
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
@@ -58,7 +39,7 @@
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript.toLowerCase();
         document.getElementById("transcript").innerText = "You said: " + text;
-        parseNaturalCommand(text);
+        parseFuzzyCommand(text);
       };
 
       recognition.onerror = function(event) {
@@ -66,32 +47,47 @@
       };
     }
 
-    // Command parser for natural language
-    function parseNaturalCommand(text) {
-      const relays = {
-        "first bulb": 1,
-        "second bulb": 2,
-        "first socket": 3,
-        "second socket": 4
-      };
+    function parseFuzzyCommand(text) {
+      const deviceMap = [
+        { keywords: ["first bulb", "bulb one", "blub 1", "1st bulb"], relay: 1 },
+        { keywords: ["second bulb", "bulb two", "blub 2", "2nd bulb"], relay: 2 },
+        { keywords: ["first socket", "socket one", "soket 1", "1st socket"], relay: 3 },
+        { keywords: ["second socket", "socket two", "soket 2", "2nd socket"], relay: 4 }
+      ];
+
+      const actions = [
+        { keywords: ["power on", "turn on", "switch on", "on"], state: "ON" },
+        { keywords: ["power off", "turn off", "switch off", "off"], state: "OFF" }
+      ];
 
       let matchedDevice = null;
-      let action = null;
+      let matchedAction = null;
 
-      for (const phrase in relays) {
-        if (text.includes(phrase)) {
-          matchedDevice = relays[phrase];
-          break;
+      for (let d of deviceMap) {
+        for (let phrase of d.keywords) {
+          if (text.includes(phrase)) {
+            matchedDevice = d.relay;
+            break;
+          }
         }
+        if (matchedDevice) break;
       }
 
-      if (text.includes("power on")) action = "ON";
-      else if (text.includes("power off")) action = "OFF";
+      for (let a of actions) {
+        for (let phrase of a.keywords) {
+          if (text.includes(phrase)) {
+            matchedAction = a.state;
+            break;
+          }
+        }
+        if (matchedAction) break;
+      }
 
-      if (matchedDevice && action) {
-        send(matchedDevice, action);
+      if (matchedDevice && matchedAction) {
+        send(matchedDevice, matchedAction);
+        document.getElementById("transcript").innerText += `\n✅ Sending ${matchedAction} to relay ${matchedDevice}`;
       } else {
-        document.getElementById("transcript").innerText += "\n❌ Could not understand command.";
+        document.getElementById("transcript").innerText += "\n❌ Didn't fully understand command.";
       }
     }
   </script>
