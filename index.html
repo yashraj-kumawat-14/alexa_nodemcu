@@ -1,15 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Voice Control (Fuzzy)</title>
+  <title>Smart Control (Voice + Buttons)</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    #transcript {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-  <h2>Voice Control: Bulbs & Sockets (Smart Parser)</h2>
+  <h2>Bulb & Socket Control</h2>
   <div id="status">Connecting to MQTT...</div><br>
 
-  <button onclick="startListening()">🎤 Speak</button><br><br>
+  <button onclick="startListening()">🎤 Speak Command</button>
   <div id="transcript">You said: ...</div>
+
+  <hr>
+  <h3>Manual Control</h3>
+  <div>
+    <button onclick="send(1, 'ON')">🔆 Bulb 1 ON</button>
+    <button onclick="send(1, 'OFF')">🕳 Bulb 1 OFF</button><br>
+    <button onclick="send(2, 'ON')">🔆 Bulb 2 ON</button>
+    <button onclick="send(2, 'OFF')">🕳 Bulb 2 OFF</button><br>
+    <button onclick="send(3, 'ON')">🔌 Socket 1 ON</button>
+    <button onclick="send(3, 'OFF')">🔌 Socket 1 OFF</button><br>
+    <button onclick="send(4, 'ON')">🔌 Socket 2 ON</button>
+    <button onclick="send(4, 'OFF')">🔌 Socket 2 OFF</button>
+  </div>
 
   <script>
     const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
@@ -20,7 +44,7 @@
     });
 
     client.on('error', () => {
-      document.getElementById("status").innerText = "❌ MQTT error";
+      document.getElementById("status").innerText = "❌ MQTT connection error";
     });
 
     function send(relay, state) {
@@ -30,7 +54,10 @@
 
     function startListening() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return alert("Speech recognition not supported.");
+      if (!SpeechRecognition) {
+        alert("Speech recognition not supported in this browser.");
+        return;
+      }
 
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
@@ -38,7 +65,7 @@
 
       recognition.onresult = function(event) {
         const text = event.results[0][0].transcript.toLowerCase();
-        document.getElementById("transcript").innerText = "You said: " + text;
+        document.getElementById("transcript").innerText = "🗣 You said: " + text;
         parseFuzzyCommand(text);
       };
 
@@ -85,9 +112,9 @@
 
       if (matchedDevice && matchedAction) {
         send(matchedDevice, matchedAction);
-        document.getElementById("transcript").innerText += `\n✅ Sending ${matchedAction} to relay ${matchedDevice}`;
+        document.getElementById("transcript").innerText += `\n✅ ${matchedAction} → Relay ${matchedDevice}`;
       } else {
-        document.getElementById("transcript").innerText += "\n❌ Didn't fully understand command.";
+        document.getElementById("transcript").innerText += "\n❌ Could not understand.";
       }
     }
   </script>
