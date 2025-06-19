@@ -1,22 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Control (Voice + Buttons)</title>
+  <title>Fuzzy Voice Control</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 16px;
-    }
-    #transcript {
-      font-size: 18px;
-      margin-top: 10px;
-    }
+    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    #transcript { font-size: 18px; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h2>Bulb & Socket Control</h2>
+  <h2>Smart Voice Control with Fuzzy Matching</h2>
   <div id="status">Connecting to MQTT...</div><br>
 
   <button onclick="startListening()">🎤 Speak Command</button>
@@ -24,20 +17,29 @@
 
   <hr>
   <h3>Manual Control</h3>
-  <div>
-    <button onclick="send(1, 'ON')">🔆 Bulb 1 ON</button>
-    <button onclick="send(1, 'OFF')">🕳 Bulb 1 OFF</button><br>
-    <button onclick="send(2, 'ON')">🔆 Bulb 2 ON</button>
-    <button onclick="send(2, 'OFF')">🕳 Bulb 2 OFF</button><br>
-    <button onclick="send(3, 'ON')">🔌 Socket 1 ON</button>
-    <button onclick="send(3, 'OFF')">🔌 Socket 1 OFF</button><br>
-    <button onclick="send(4, 'ON')">🔌 Socket 2 ON</button>
-    <button onclick="send(4, 'OFF')">🔌 Socket 2 OFF</button>
-  </div>
+  <button onclick="send(1, 'ON')">Bulb 1 ON</button>
+  <button onclick="send(1, 'OFF')">Bulb 1 OFF</button><br>
+  <button onclick="send(2, 'ON')">Bulb 2 ON</button>
+  <button onclick="send(2, 'OFF')">Bulb 2 OFF</button><br>
+  <button onclick="send(3, 'ON')">Socket 1 ON</button>
+  <button onclick="send(3, 'OFF')">Socket 1 OFF</button><br>
+  <button onclick="send(4, 'ON')">Socket 2 ON</button>
+  <button onclick="send(4, 'OFF')">Socket 2 OFF</button>
 
   <script>
     const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
     const topicBase = "lucifer123/home/relay";
+
+    const commands = {
+      "power on first bulb":  { relay: 1, state: "ON" },
+      "power off first bulb": { relay: 1, state: "OFF" },
+      "power on second bulb": { relay: 2, state: "ON" },
+      "power off second bulb":{ relay: 2, state: "OFF" },
+      "power on first socket":{ relay: 3, state: "ON" },
+      "power off first socket":{ relay: 3, state: "OFF" },
+      "power on second socket":{ relay: 4, state: "ON" },
+      "power off second socket":{ relay: 4, state: "OFF" }
+    };
 
     client.on('connect', () => {
       document.getElementById("status").innerText = "✅ Connected to MQTT broker";
@@ -54,19 +56,16 @@
 
     function startListening() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Speech recognition not supported in this browser.");
-        return;
-      }
+      if (!SpeechRecognition) return alert("Speech recognition not supported.");
 
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
       recognition.start();
 
       recognition.onresult = function(event) {
-        const text = event.results[0][0].transcript.toLowerCase();
-        document.getElementById("transcript").innerText = "🗣 You said: " + text;
-        parseFuzzyCommand(text);
+        const userText = event.results[0][0].transcript.toLowerCase();
+        document.getElementById("transcript").innerText = "🗣 You said: " + userText;
+        matchFuzzyCommand(userText);
       };
 
       recognition.onerror = function(event) {
@@ -74,48 +73,60 @@
       };
     }
 
-    function parseFuzzyCommand(text) {
-      const deviceMap = [
-        { keywords: ["first bulb", "bulb one", "blub 1", "1st bulb"], relay: 1 },
-        { keywords: ["second bulb", "bulb two", "blub 2", "2nd bulb"], relay: 2 },
-        { keywords: ["first socket", "socket one", "soket 1", "1st socket"], relay: 3 },
-        { keywords: ["second socket", "socket two", "soket 2", "2nd socket"], relay: 4 }
-      ];
+    function matchFuzzyCommand(userInput) {
+      let bestMatch = null;
+      let bestScore = 0;
 
-      const actions = [
-        { keywords: ["power on", "turn on", "switch on", "on"], state: "ON" },
-        { keywords: ["power off", "turn off", "switch off", "off"], state: "OFF" }
-      ];
-
-      let matchedDevice = null;
-      let matchedAction = null;
-
-      for (let d of deviceMap) {
-        for (let phrase of d.keywords) {
-          if (text.includes(phrase)) {
-            matchedDevice = d.relay;
-            break;
-          }
+      for (const cmd in commands) {
+        const score = similarity(userInput, cmd);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = cmd;
         }
-        if (matchedDevice) break;
       }
 
-      for (let a of actions) {
-        for (let phrase of a.keywords) {
-          if (text.includes(phrase)) {
-            matchedAction = a.state;
-            break;
-          }
-        }
-        if (matchedAction) break;
-      }
-
-      if (matchedDevice && matchedAction) {
-        send(matchedDevice, matchedAction);
-        document.getElementById("transcript").innerText += `\n✅ ${matchedAction} → Relay ${matchedDevice}`;
+      if (bestScore >= 0.85 && bestMatch) {
+        const { relay, state } = commands[bestMatch];
+        send(relay, state);
+        document.getElementById("transcript").innerText += `\n✅ Matched: "${bestMatch}" (${Math.round(bestScore * 100)}%)`;
       } else {
-        document.getElementById("transcript").innerText += "\n❌ Could not understand.";
+        document.getElementById("transcript").innerText += `\n❌ No close command match found (${Math.round(bestScore * 100)}%)`;
       }
+    }
+
+    // Levenshtein similarity (0.0 to 1.0)
+    function similarity(s1, s2) {
+      const longer = s1.length > s2.length ? s1 : s2;
+      const shorter = s1.length > s2.length ? s2 : s1;
+      const longerLength = longer.length;
+      if (longerLength === 0) return 1.0;
+      const editDist = levenshtein(longer, shorter);
+      return (longerLength - editDist) / longerLength;
+    }
+
+    function levenshtein(a, b) {
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+      }
+      for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+      }
+
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1, // substitution
+              matrix[i][j - 1] + 1,     // insertion
+              matrix[i - 1][j] + 1      // deletion
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
     }
   </script>
 </body>
