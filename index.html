@@ -85,7 +85,7 @@
         }
       }
 
-      if (bestScore >= 0.85 && bestMatch) {
+      if (bestScore >= 0.75 && bestMatch) {
         const { relay, state } = commands[bestMatch];
         send(relay, state);
         document.getElementById("transcript").innerText += `\n✅ Matched: "${bestMatch}" (${Math.round(bestScore * 100)}%)`;
