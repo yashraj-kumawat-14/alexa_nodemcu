@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Voice-Controlled Relay</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <h2>MQTT Relay Control with Voice</h2>
+  <div id="status">Connecting to MQTT...</div><br>
+
+  <button onclick="startListening()">🎤 Speak Command</button><br><br>
+  <div id="transcript">You said: ...</div>
+
+  <hr>
+  <button onclick="send(1, 'ON')">Relay 1 ON</button>
+  <button onclick="send(1, 'OFF')">Relay 1 OFF</button><br><br>
+  <button onclick="send(2, 'ON')">Relay 2 ON</button>
+  <button onclick="send(2, 'OFF')">Relay 2 OFF</button><br><br>
+  <button onclick="send(3, 'ON')">Relay 3 ON</button>
+  <button onclick="send(3, 'OFF')">Relay 3 OFF</button><br><br>
+  <button onclick="send(4, 'ON')">Relay 4 ON</button>
+  <button onclick="send(4, 'OFF')">Relay 4 OFF</button>
+
+  <script>
+    // Connect to MQTT broker
+    const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
+    const topicBase = "lucifer123/home/relay";
+
+    client.on('connect', () => {
+      document.getElementById("status").innerText = "✅ Connected to test.mosquitto.org";
+    });
+
+    client.on('error', () => {
+      document.getElementById("status").innerText = "❌ MQTT connection error!";
+    });
+
+    function send(relay, state) {
+      const topic = `${topicBase}${relay}`;
+      client.publish(topic, state);
+    }
+
+    // Speech Recognition
+    function startListening() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition not supported in this browser.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.start();
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        document.getElementById("transcript").innerText = "You said: " + transcript;
+
+        parseCommand(transcript);
+      };
+
+      recognition.onerror = function(event) {
+        document.getElementById("transcript").innerText = "❌ Error: " + event.error;
+      };
+    }
+
+    function parseCommand(text) {
+      const relayMap = {
+        "one": 1,
+        "1": 1,
+        "two": 2,
+        "2": 2,
+        "three": 3,
+        "3": 3,
+        "four": 4,
+        "4": 4
+      };
+
+      const relayNum = Object.keys(relayMap).find(key => text.includes("relay " + key));
+      const action = text.includes("on") ? "ON" : text.includes("off") ? "OFF" : null;
+
+      if (relayNum && action) {
+        send(relayMap[relayNum], action);
+      }
+    }
+  </script>
+</body>
+</html>
