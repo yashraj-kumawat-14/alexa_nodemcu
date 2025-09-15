@@ -5,7 +5,7 @@
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     button { padding: 10px 20px; margin: 5px; font-size: 16px; }
-    #transcript { font-size: 18px; margin-top: 10px; }
+    #transcript { font-size: 18px; margin-top: 10px; white-space: pre-line; }
   </style>
 </head>
 <body>
@@ -30,6 +30,7 @@
     const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
     const topicBase = "lucifer123/home/relay";
 
+    // Voice commands mapping
     const commands = {
       "power on first bulb":  { relay: 1, state: "ON" },
       "power off first bulb": { relay: 1, state: "OFF" },
@@ -49,11 +50,15 @@
       document.getElementById("status").innerText = "❌ MQTT connection error";
     });
 
+    // === FIX: Relay logic inverted (active LOW) ===
     function send(relay, state) {
       const topic = `${topicBase}${relay}`;
-      client.publish(topic, state);
+      const realState = (state === "ON") ? "OFF" : "ON"; // invert logic
+      client.publish(topic, realState);
+      console.log(`Relay ${relay}: Requested ${state}, Published ${realState}`);
     }
 
+    // === Voice recognition ===
     function startListening() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) return alert("Speech recognition not supported.");
@@ -73,6 +78,7 @@
       };
     }
 
+    // === Fuzzy matching ===
     function matchFuzzyCommand(userInput) {
       let bestMatch = null;
       let bestScore = 0;
@@ -88,13 +94,15 @@
       if (bestScore >= 0.75 && bestMatch) {
         const { relay, state } = commands[bestMatch];
         send(relay, state);
-        document.getElementById("transcript").innerText += `\n✅ Matched: "${bestMatch}" (${Math.round(bestScore * 100)}%)`;
+        document.getElementById("transcript").innerText += 
+          `\n✅ Matched: "${bestMatch}" → ${state} (${Math.round(bestScore * 100)}%)`;
       } else {
-        document.getElementById("transcript").innerText += `\n❌ No close command match found (${Math.round(bestScore * 100)}%)`;
+        document.getElementById("transcript").innerText += 
+          `\n❌ No close command match found (${Math.round(bestScore * 100)}%)`;
       }
     }
 
-    // Levenshtein similarity (0.0 to 1.0)
+    // === Similarity functions ===
     function similarity(s1, s2) {
       const longer = s1.length > s2.length ? s1 : s2;
       const shorter = s1.length > s2.length ? s2 : s1;
