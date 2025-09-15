@@ -17,29 +17,30 @@
 
   <hr>
   <h3>Manual Control</h3>
-  <button onclick="send(1, 'ON')">Bulb 1 ON</button>
-  <button onclick="send(1, 'OFF')">Bulb 1 OFF</button><br>
-  <button onclick="send(2, 'ON')">Bulb 2 ON</button>
-  <button onclick="send(2, 'OFF')">Bulb 2 OFF</button><br>
-  <button onclick="send(3, 'ON')">Socket 1 ON</button>
-  <button onclick="send(3, 'OFF')">Socket 1 OFF</button><br>
-  <button onclick="send(4, 'ON')">Socket 2 ON</button>
-  <button onclick="send(4, 'OFF')">Socket 2 OFF</button>
+  <!-- swapped ON with OFF everywhere -->
+  <button onclick="send(1, 'OFF')">Bulb 1 ON</button>
+  <button onclick="send(1, 'ON')">Bulb 1 OFF</button><br>
+  <button onclick="send(2, 'OFF')">Bulb 2 ON</button>
+  <button onclick="send(2, 'ON')">Bulb 2 OFF</button><br>
+  <button onclick="send(3, 'OFF')">Socket 1 ON</button>
+  <button onclick="send(3, 'ON')">Socket 1 OFF</button><br>
+  <button onclick="send(4, 'OFF')">Socket 2 ON</button>
+  <button onclick="send(4, 'ON')">Socket 2 OFF</button>
 
   <script>
     const client = mqtt.connect("wss://test.mosquitto.org:8081/mqtt");
     const topicBase = "lucifer123/home/relay";
 
-    // Voice commands mapping
+    // Voice commands mapping (swapped ON and OFF)
     const commands = {
-      "power on first bulb":  { relay: 1, state: "ON" },
-      "power off first bulb": { relay: 1, state: "OFF" },
-      "power on second bulb": { relay: 2, state: "ON" },
-      "power off second bulb":{ relay: 2, state: "OFF" },
-      "power on first socket":{ relay: 3, state: "ON" },
-      "power off first socket":{ relay: 3, state: "OFF" },
-      "power on second socket":{ relay: 4, state: "ON" },
-      "power off second socket":{ relay: 4, state: "OFF" }
+      "power on first bulb":  { relay: 1, state: "OFF" },
+      "power off first bulb": { relay: 1, state: "ON" },
+      "power on second bulb": { relay: 2, state: "OFF" },
+      "power off second bulb":{ relay: 2, state: "ON" },
+      "power on first socket":{ relay: 3, state: "OFF" },
+      "power off first socket":{ relay: 3, state: "ON" },
+      "power on second socket":{ relay: 4, state: "OFF" },
+      "power off second socket":{ relay: 4, state: "ON" }
     };
 
     client.on('connect', () => {
@@ -50,12 +51,11 @@
       document.getElementById("status").innerText = "❌ MQTT connection error";
     });
 
-    // === FIX: Relay logic inverted (active LOW) ===
+    // Normal send (no inversion here, already swapped in mappings/buttons)
     function send(relay, state) {
       const topic = `${topicBase}${relay}`;
-      const realState = (state === "ON") ? "OFF" : "ON"; // invert logic
-      client.publish(topic, realState);
-      console.log(`Relay ${relay}: Requested ${state}, Published ${realState}`);
+      client.publish(topic, state);
+      console.log(`Relay ${relay}: Published ${state}`);
     }
 
     // === Voice recognition ===
